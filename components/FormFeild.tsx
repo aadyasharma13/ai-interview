@@ -4,36 +4,35 @@ import {
     FormItem,
     FormLabel,
     FormControl,
-    FormDescription,
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { UseFormReturn, FieldValues, Path } from "react-hook-form";
+import { Control, FieldValues, Path } from "react-hook-form";
 
 interface FormFeildProps<T extends FieldValues = FieldValues> {
-    form: UseFormReturn<T>;
+    control: Control<T>;
     name: Path<T>;
+    label: string;
+    placeholder: string;
+    type: string;
 }
 
-const FormFeild = <T extends FieldValues = FieldValues>({ form, name }: FormFeildProps<T>) => {
+const FormFeild = <T extends FieldValues = FieldValues>({ control, name, label, placeholder, type }: FormFeildProps<T>) => {
     return (
         <FormField
-            control={form.control}
+            control={control}
             name={name}
-            render={({ field }: { field: any }) => (
+            render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>{label}</FormLabel>
                     <FormControl>
-                        <Input placeholder="shadcn" {...field} />
+                        <Input placeholder={placeholder} type={type} {...field} />
                     </FormControl>
-                    <FormDescription>
-                        This is your public display name.
-                    </FormDescription>
                     <FormMessage />
                 </FormItem>
             )}
         />
-    )
-}
+    );
+};
 
 export default FormFeild;

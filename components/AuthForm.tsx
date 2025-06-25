@@ -4,6 +4,10 @@ import { useForm } from "react-hook-form"
 import { z } from "zod";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/firebase/client';
+import { toast } from 'sonner';
 
 import { Button } from "@/components/ui/button"
 import {
@@ -16,23 +20,21 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { signUp, signIn } from "@/lib/actions/auth.action";
+import FormFeild from "./FormFeild";
 
-
-const formSchema = z.object({
-    username: z.string().min(2).max(50),
-});
 
 const authFormSchema = (type:FormType) => {
     return z.object({
-        name:type === "sign-up" ? z.string().min(2).max(50) : z.string()
-    .optional(),
-    email:z.string().email(),
-    password:z.string().min(8),
+        name:type === "sign-up" ? z.string().min(3) : z.string().optional(),
+        email:z.string().email(),
+        password:z.string().min(3),
     })
 }
 
 const AuthForm = ({ type }: { type:FormType}) => {
     const formSchema = authFormSchema(type);
+    const router = useRouter();
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -44,9 +46,50 @@ const AuthForm = ({ type }: { type:FormType}) => {
     })
 
     // 2. Define a submit handler.
-    async function onSubmit(values: z.infer<typeof formSchema>) {
-        // Here you would handle sign in or sign up logic, e.g., call an API
-        console.log(values);
+    const onSubmit = async (data: z.infer<typeof formSchema>) => {
+        try {
+            if (type === "sign-up") {
+                const {name,email,password} = data;
+
+                const userCredential = await createUserWithEmailAndPassword(auth,email,password);
+
+                const result = await signUp({
+                    uid:userCredential.user.uid,
+                    name: name!,
+                    email,
+                    password,
+                })
+
+                if(!result?.success){
+                    toast.error(result?.message);
+                    return;
+                }
+
+                toast.success("Account created successfully. Please sign in.");
+                router.push("/sign-in");
+            }else{
+                const {email,password} = data;
+                const userCredential = await signInWithEmailAndPassword(auth,email,password);
+
+                const idToken = await userCredential.user.getIdToken();
+
+                if(!idToken){
+                    toast.error("Sign in Failed. Please try again.");
+                    return;
+                }
+
+                await signIn({
+                    email,
+                    idToken,
+                })
+
+                toast.success("Signed in successfully.");
+                router.push("/");
+            }
+        } catch (error) {
+            console.log(error);
+            toast.error(`There was an error: ${error}`);
+        }
     }
 
     const isSignIn = type === "sign-in";
@@ -56,63 +99,45 @@ const AuthForm = ({ type }: { type:FormType}) => {
         <div className="card-border lg:min-w-[566px]">
             <div className="flex flex-col gap-6 card py-14 px-10">
                 <div className="flex flex-row gap-2 justify-center">
-                    <Image src="/logo.svg" alt="logo" width={38} height={32} />
+                    <Image src="/logo.svg" alt="logo" width={38} height={32} style={{ height: 'auto' }} />
                     <h2 className="text-2xl font-bold">PrepWise</h2>
                 </div>
                 <h3>Practice job interviews with ai</h3>
 
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-6 mt-4 form">
-                        {isSignUp && (
-                            <FormField
+                        {!isSignIn && (
+                            <FormFeild
                                 control={form.control}
                                 name="name"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Name</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Your name" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
+                                label="Name"
+                                placeholder="Your Name"
+                                type="text"
                             />
                         )}
-                        <FormField
+                        <FormFeild
                             control={form.control}
                             name="email"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Email</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Email" type="email" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                            label="Email"
+                            placeholder="Your email address"
+                            type="email"
                         />
-                        <FormField
+                        <FormFeild
                             control={form.control}
                             name="password"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Password</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Password" type="password" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
+                            label="Password"
+                            placeholder="Enter your password"
+                            type="password"
                         />
                         {/* Add more fields for sign up if needed, e.g., confirm password, company, role, location */}
-                        <Button className="btn" type="submit">{isSignIn ? "Sign In" : "Create Account"}</Button>
+                        <Button className="btn" type="submit">{isSignIn ? "Sign In" : "Create an Account"}</Button>
                     </form>
                 </Form>
 
                 <p className="text-center text-sm text-muted-foreground">
-                    {isSignIn ? "Don't have an account?" : "Already have an account?"}
+                    {isSignIn ? "No account yet?" : "Have an account already?"}
                     <Link href={!isSignIn ? "/sign-in" : "/sign-up"} className="font-bold text-user-primary ml-1">
-                        {isSignIn ? "Sign Up" : "Sign In"}
+                        {!isSignIn ? "Sign In" : "Sign Up"}
                     </Link>
                 </p>
             </div>
